@@ -1,0 +1,308 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  background: #0f172a;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+button {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.room-shell {
+  min-height: 100dvh;
+  padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+}
+
+.mobile-action-bar {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+}
+
+.mobile-notice {
+  bottom: calc(7.5rem + env(safe-area-inset-bottom));
+}
+
+@keyframes logo-cup-roll {
+  0%, 100% { transform: rotate(0deg) translate3d(0, 0, 0); }
+  20% { transform: rotate(-6deg) translate3d(-3%, 1%, 0); }
+  48% { transform: rotate(7deg) translate3d(4%, -2%, 0); }
+  72% { transform: rotate(-3deg) translate3d(-2%, 1%, 0); }
+}
+
+@keyframes logo-dice-roll {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(28deg) scale(1.08); }
+  65% { transform: rotate(-18deg) scale(0.96); }
+}
+
+@keyframes logo-red-dot-roll {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  35% { transform: translate3d(30%, 45%, 0) scale(1.1); }
+  68% { transform: translate3d(-18%, 12%, 0) scale(0.92); }
+}
+
+@keyframes logo-blue-dot-roll {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  30% { transform: translate3d(-34%, -42%, 0) scale(1.1); }
+  70% { transform: translate3d(14%, -10%, 0) scale(0.92); }
+}
+
+.brand-logo.is-rolling .brand-logo-shell { animation: logo-cup-roll 0.56s ease-in-out; }
+.brand-logo.is-rolling .brand-logo-dice { animation: logo-dice-roll 0.56s ease-in-out; }
+.brand-logo.is-rolling .brand-logo-shell > span:first-child { animation: logo-red-dot-roll 0.56s ease-in-out; }
+.brand-logo.is-rolling .brand-logo-shell > span:nth-child(2) { animation: logo-blue-dot-roll 0.56s ease-in-out; }
+.brand-logo.is-rolling .brand-logo-glow { animation: logo-cup-roll 0.56s ease-in-out; filter: brightness(1.5); }
+
+.theme-logo-hint {
+  background: rgba(30, 41, 59, 0.95);
+  color: #f8fafc;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo.is-rolling .brand-logo-shell,
+  .brand-logo.is-rolling .brand-logo-dice,
+  .brand-logo.is-rolling .brand-logo-shell > span,
+  .brand-logo.is-rolling .brand-logo-glow { animation: none; }
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* Bright theme: dice white surfaces, casino blue actions, and red only for risk. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="light"] body {
+  background: #f4f7fc;
+  color: #16233d;
+}
+
+:root[data-theme="light"] [class~="bg-[#0f172a]"] {
+  background: #f4f7fc !important;
+}
+
+:root[data-theme="light"] [class~="bg-slate-900/80"],
+:root[data-theme="light"] [class~="bg-[#1e293b]"],
+:root[data-theme="light"] [class~="bg-slate-900"],
+:root[data-theme="light"] [class~="bg-slate-800"] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] [class~="bg-white/5"],
+:root[data-theme="light"] [class~="bg-white/10"],
+:root[data-theme="light"] [class~="bg-white/20"] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] [class~="bg-black/15"],
+:root[data-theme="light"] [class~="bg-black/20"],
+:root[data-theme="light"] [class~="bg-black/30"],
+:root[data-theme="light"] [class~="bg-slate-700"] {
+  background-color: #eef3f9 !important;
+}
+
+:root[data-theme="light"] [class~="bg-blue-500/10"],
+:root[data-theme="light"] [class~="bg-blue-500/15"],
+:root[data-theme="light"] [class~="bg-amber-400/10"],
+:root[data-theme="light"] [class~="bg-amber-500/10"] {
+  background-color: #e8f1ff !important;
+}
+
+:root[data-theme="light"] [class~="border-white/5"],
+:root[data-theme="light"] [class~="border-white/10"],
+:root[data-theme="light"] [class~="border-white/20"],
+:root[data-theme="light"] [class~="border-white/25"] {
+  border-color: #d7e2f0 !important;
+}
+
+:root[data-theme="light"] [class~="border-amber-400"],
+:root[data-theme="light"] [class~="border-amber-400/20"],
+:root[data-theme="light"] [class~="border-amber-400/30"] {
+  border-color: #86adf2 !important;
+}
+
+:root[data-theme="light"] [class~="text-slate-100"],
+:root[data-theme="light"] [class~="text-slate-200"],
+:root[data-theme="light"] [class~="text-slate-300"],
+:root[data-theme="light"] [class~="text-slate-900"] {
+  color: #16233d !important;
+}
+
+:root[data-theme="light"] [class~="text-slate-400"] {
+  color: #53647d !important;
+}
+
+:root[data-theme="light"] [class~="text-slate-500"],
+:root[data-theme="light"] [class~="text-slate-600"] {
+  color: #71819a !important;
+}
+
+:root[data-theme="light"] [class~="text-amber-200"],
+:root[data-theme="light"] [class~="text-amber-300"],
+:root[data-theme="light"] [class~="text-amber-400"] {
+  color: #1f62c8 !important;
+}
+
+:root[data-theme="light"] [class~="bg-amber-400"] {
+  background-color: #2467d6 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] [class~="bg-gradient-to-r"] {
+  background-image: linear-gradient(105deg, #1f5fc7, #4c8df5) !important;
+}
+
+:root[data-theme="light"] button[class~="bg-gradient-to-r"] {
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+}
+
+:root[data-theme="light"] [class~="from-slate-800"],
+:root[data-theme="light"] [class~="from-slate-900"] {
+  --tw-gradient-from: #ffffff var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(255, 255, 255, 0) var(--tw-gradient-to-position) !important;
+}
+
+:root[data-theme="light"] [class~="to-slate-900/40"],
+:root[data-theme="light"] [class~="to-[#0f172a]"] {
+  --tw-gradient-to: #edf4ff var(--tw-gradient-to-position) !important;
+}
+
+:root[data-theme="light"] [class~="placeholder:text-slate-600"]::placeholder {
+  color: #91a0b5 !important;
+}
+
+:root[data-theme="light"] input[class~="text-white"],
+:root[data-theme="light"] textarea[class~="text-white"] {
+  color: #16233d !important;
+}
+
+:root[data-theme="light"] [class~="bg-red-500/10"] {
+  background-color: #fff0f2 !important;
+}
+
+:root[data-theme="light"] [class~="border-red-400/20"],
+:root[data-theme="light"] [class~="border-red-400/30"] {
+  border-color: #f6bbc3 !important;
+}
+
+:root[data-theme="light"] [class~="text-red-200"],
+:root[data-theme="light"] [class~="text-red-300"] {
+  color: #bd3041 !important;
+}
+
+:root[data-theme="light"] [class~="bg-green-500/15"] {
+  background-color: #e2f6e9 !important;
+}
+
+:root[data-theme="light"] [class~="text-green-300"] {
+  color: #137a42 !important;
+}
+
+:root[data-theme="light"] [class~="bg-violet-400/10"],
+:root[data-theme="light"] [class~="bg-violet-500/15"] {
+  background-color: #f0ebff !important;
+}
+
+:root[data-theme="light"] [class~="border-violet-400/25"],
+:root[data-theme="light"] [class~="border-violet-400/30"] {
+  border-color: #c8b7f5 !important;
+}
+
+:root[data-theme="light"] [class~="text-violet-200"],
+:root[data-theme="light"] [class~="text-violet-300"] {
+  color: #6634bd !important;
+}
+
+:root[data-theme="light"] [class~="border-blue-400/20"] {
+  border-color: #8eb8f6 !important;
+}
+
+:root[data-theme="light"] [class~="text-blue-300"] {
+  color: #1f62c8 !important;
+}
+
+:root[data-theme="light"] button:disabled[class*="border-blue-400/20"] {
+  background-color: #eef4fd !important;
+  border-color: #bdd3f2 !important;
+  color: #6684ae !important;
+}
+
+:root[data-theme="light"] .brand-logo-glow {
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+:root[data-theme="light"] .brand-logo-shell {
+  background: radial-gradient(circle at 50% 8%, rgba(255,255,255,0.95), transparent 48%), linear-gradient(135deg, #ffffff, #e7eef8) !important;
+  border-color: #b9c9dc !important;
+  box-shadow: 0 12px 30px rgba(59, 96, 148, 0.22), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+}
+
+:root[data-theme="light"] .brand-logo-dice {
+  color: #2467d6 !important;
+  filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.32));
+}
+
+:root[data-theme="light"] .room-mode-badge {
+  background: #e8f1ff !important;
+  border: 1px solid #bed3f5;
+  color: #315b96 !important;
+}
+
+:root[data-theme="light"] .theme-toggle {
+  background: #ffffff !important;
+  border-color: #cbd9eb !important;
+  color: #2467d6 !important;
+  box-shadow: 0 3px 10px rgba(44, 91, 150, 0.12);
+}
+
+:root[data-theme="light"] .theme-logo-hint {
+  background: #1f62c8;
+  color: #ffffff;
+}
+
+/* The room control drawer has its own surface so light-theme utility overrides
+   cannot leave a dark panel paired with dark text. */
+.room-actions-popover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.room-action-item {
+  color: #f1f5f9;
+}
+
+.room-action-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .room-actions-popover {
+  background: #ffffff !important;
+  border-color: #ccdced !important;
+  box-shadow: 0 16px 32px rgba(47, 75, 116, 0.18);
+}
+
+:root[data-theme="light"] .room-action-item {
+  color: #16233d !important;
+}
+
+:root[data-theme="light"] .room-action-item:hover {
+  background: #eef4fd;
+}
+
+:root[data-theme="light"] .room-action-danger {
+  border-color: #f4c7ce !important;
+  color: #bd3041 !important;
+}

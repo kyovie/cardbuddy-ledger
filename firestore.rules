@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function roomPath(roomId) { return /databases/$(database)/documents/rooms/$(roomId); }
+    function sessionPath(roomId) { return /databases/$(database)/documents/rooms/$(roomId)/sessions/$(request.auth.uid); }
+    function member(roomId) {
+      return signedIn() && exists(sessionPath(roomId)) &&
+        exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(get(sessionPath(roomId)).data.playerId)) &&
+        (!("isActiveMember" in get(/databases/$(database)/documents/rooms/$(roomId)/players/$(get(sessionPath(roomId)).data.playerId)).data) ||
+          get(/databases/$(database)/documents/rooms/$(roomId)/players/$(get(sessionPath(roomId)).data.playerId)).data.isActiveMember != false);
+    }
+    function memberAfter(roomId) {
+      return signedIn() && existsAfter(sessionPath(roomId)) &&
+        existsAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(getAfter(sessionPath(roomId)).data.playerId)) &&
+        (!("isActiveMember" in getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(getAfter(sessionPath(roomId)).data.playerId)).data) ||
+          getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(getAfter(sessionPath(roomId)).data.playerId)).data.isActiveMember != false);
+    }
+    function actorId(roomId) { return get(sessionPath(roomId)).data.playerId; }
+    function actorIdAfter(roomId) { return getAfter(sessionPath(roomId)).data.playerId; }
+    function owner(roomId) { return member(roomId) && get(roomPath(roomId)).data.ownerId == actorId(roomId); }
+    function ownerAfter(roomId) { return memberAfter(roomId) && getAfter(roomPath(roomId)).data.ownerId == actorIdAfter(roomId); }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.schemaVersion == 3 && ownerAfter(roomId);
+      allow update: if member(roomId) || memberAfter(roomId);
+      allow delete: if owner(roomId);
+
+      match /sessions/{authUid} {
+        allow read: if signedIn() && (authUid == request.auth.uid || owner(roomId));
+        allow create, update: if signedIn() && authUid == request.auth.uid &&
+          existsAfter(/databases/$(database)/documents/rooms/$(roomId)/invites/$(request.resource.data.inviteId)) &&
+          getAfter(/databases/$(database)/documents/rooms/$(roomId)/invites/$(request.resource.data.inviteId)).data.playerId == request.resource.data.playerId;
+        allow delete: if signedIn() && (authUid == request.auth.uid || owner(roomId));
+      }
+
+      match /players/{playerId} {
+        allow read: if signedIn();
+        allow create: if memberAfter(roomId) && playerId == actorIdAfter(roomId);
+        allow update: if member(roomId);
+        allow delete: if owner(roomId);
+      }
+
+      match /events/{eventId} {
+        allow read: if signedIn();
+        allow create: if (member(roomId) && request.resource.data.actorId == actorId(roomId)) ||
+          (memberAfter(roomId) && request.resource.data.actorId == actorIdAfter(roomId));
+        allow update: if false;
+        allow delete: if owner(roomId);
+      }
+
+      match /playerNames/{nameKey} {
+        allow read: if signedIn();
+        allow create: if owner(roomId) || ownerAfter(roomId) ||
+          (member(roomId) && request.resource.data.uid == actorId(roomId)) ||
+          (memberAfter(roomId) && request.resource.data.uid == actorIdAfter(roomId));
+        allow update: if false;
+        allow delete: if owner(roomId) || (member(roomId) && resource.data.uid == actorId(roomId));
+      }
+
+      match /invites/{inviteId} {
+        allow get: if signedIn();
+        allow list: if member(roomId);
+        allow create: if owner(roomId) || ownerAfter(roomId);
+        allow delete: if owner(roomId);
+        allow update: if owner(roomId) ||
+          (memberAfter(roomId) && resource.data.playerId == actorIdAfter(roomId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(["joinedAt"]));
+      }
+    }
+  }
+}
