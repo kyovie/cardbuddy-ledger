@@ -1068,7 +1068,21 @@ export function subscribeRoom(
       roomRef(db, roomId),
       { includeMetadataChanges: true },
       (snapshot) => {
+        streamHealth.roomAt = Date.now();
+        streamHealth.roomFromCache = snapshot.metadata.fromCache;
         if (!snapshot.exists()) {
+          // 首次打开专属链接时，本地缓存可能暂时没有该房间；等待服务端快照，
+          // 不要把缓存未命中误报成“房间不存在”。
+          if (snapshot.metadata.fromCache) {
+            onUpdate({
+              room: null,
+              isLoading: true,
+              isSynced: false,
+              error: null,
+              streamHealth: { ...streamHealth },
+            });
+            return;
+          }
           onUpdate({
             room: null,
             isLoading: false,
@@ -1097,12 +1111,10 @@ export function subscribeRoom(
         if (room.expiresAt) {
           scheduleExpiryCheck(room.expiresAt.toMillis());
         }
-        const roomReceivedAt = Date.now();
+        const roomReceivedAt = streamHealth.roomAt;
         const revisionChanged =
           lastRoomRevision !== null && lastRoomRevision !== room.revision;
         lastRoomRevision = room.revision;
-        streamHealth.roomAt = roomReceivedAt;
-        streamHealth.roomFromCache = snapshot.metadata.fromCache;
         onUpdate({
           room,
           isLoading: false,

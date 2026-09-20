@@ -412,6 +412,10 @@ export default function App() {
   const currentPlayer = roomState.players.find(
     (player) => player.id === identity.playerId && player.isActiveMember !== false,
   );
+  // 专属身份兑换完成后，玩家列表监听可能会晚一个快照到达；缓存中的旧列表也不能
+  // 当作“玩家不存在”。在服务端确认前保持加载态，避免首次打开链接闪现失败页。
+  if (!currentPlayer && (!roomState.streamHealth.playersAt || roomState.streamHealth.playersFromCache))
+    return <LoadingView label="正在同步玩家信息…" />;
   if (!currentPlayer)
     return <ErrorView message="专属身份尚未加入房间，请刷新后重试。" onHome={goHome} />;
   return (
