@@ -9,6 +9,7 @@ import {
   Crown,
   Dices,
   History,
+  Languages,
   LoaderCircle,
   LogIn,
   Minus,
@@ -52,6 +53,7 @@ import {
   updateRoomSettings,
 } from "./src/roomService";
 import { useAnonymousSession, useRoom, useRoomIdentity } from "./src/useRoom";
+import { I18nProvider, preferredLocale, rememberLocale, type Locale, type Translator, useI18n } from "./i18n";
 
 type Modal =
   | "TRANSFER"
@@ -279,40 +281,40 @@ function roomTime(value: Date) {
   });
 }
 
-function eventLabel(event: LedgerEvent, players: Player[]) {
+function eventLabel(event: LedgerEvent, players: Player[], t: Translator) {
   const name = (id?: string) =>
-    players.find((player) => player.id === id)?.displayName ?? "未知玩家";
+    players.find((player) => player.id === id)?.displayName ?? t("未知玩家");
   switch (event.type) {
     case "ROOM_CREATED":
-      return "房间已创建";
+      return t("房间已创建");
     case "TRANSFER":
       return `${name(event.fromId)} → ${name(event.toId)}`;
     case "BET":
-      return `${name(event.actorId)} ${event.note === "BLIND" ? "盲注" : "下注"}`;
+      return `${name(event.actorId)} ${t(event.note === "BLIND" ? "盲注" : "下注")}`;
     case "CALL":
-      return `${name(event.actorId)} ${event.note === "BLIND" ? "盲注跟注" : "跟注"}`;
+      return `${name(event.actorId)} ${t(event.note === "BLIND" ? "盲注跟注" : "跟注")}`;
     case "FOLD":
-      return `${name(event.actorId)} 弃牌`;
+      return `${name(event.actorId)} ${t("弃牌")}`;
     case "ROUND_STARTED":
-      if (event.note === "room_created") return "房间已创建";
+      if (event.note === "room_created") return t("房间已创建");
       const ante = event.note?.match(/^ante:(\d+)$/)?.[1];
-      return ante ? `牌局开始 · 每人底注 ${money(Number(ante))}` : "牌局开始";
+      return ante ? t("牌局开始 · 每人底注 {amount}", { amount: money(Number(ante)) }) : t("牌局开始");
     case "ROUND_ADVANCED":
-      return `进入第 ${event.round} 轮`;
+      return t("进入第 {round} 轮", { round: event.round ?? 0 });
     case "SETTLEMENT":
-      return `本局结算给 ${event.recipientIds?.map(name).join("、") ?? "赢家"}`;
+      return t("本局结算给 {players}", { players: event.recipientIds?.map(name).join("、") ?? t("赢家") });
     case "PLAYER_LEFT":
-      return `${name(event.actorId)} 已离开房间`;
-    case "TABLE_SEATED": return `${name(event.actorId)} 已上桌`;
-    case "TABLE_LEFT": return `${name(event.actorId)} 已下桌`;
-    case "PLAYER_READY": return `${name(event.actorId)} 已准备`;
-    case "PLAYER_UNREADY": return `${name(event.actorId)} 取消准备`;
-    case "HOST_REMOVED_FROM_TABLE": return `${name(event.toId)} 被请下桌`;
-    case "HOST_REMOVED_FROM_ROOM": return `${name(event.toId)} 被房主请离房间`;
-    case "SETTINGS_UPDATED": return "房主更新了牌局设置";
-    case "BET_MODE_CHANGED": return `${name(event.actorId)} ${event.note === "BLIND" ? "开启盲注" : "切回正常下注"}`;
+      return `${name(event.actorId)} ${t("已离开房间")}`;
+    case "TABLE_SEATED": return `${name(event.actorId)} ${t("已上桌")}`;
+    case "TABLE_LEFT": return `${name(event.actorId)} ${t("已下桌")}`;
+    case "PLAYER_READY": return `${name(event.actorId)} ${t("已准备")}`;
+    case "PLAYER_UNREADY": return `${name(event.actorId)} ${t("取消准备")}`;
+    case "HOST_REMOVED_FROM_TABLE": return `${name(event.toId)} ${t("被请下桌")}`;
+    case "HOST_REMOVED_FROM_ROOM": return `${name(event.toId)} ${t("被房主请离房间")}`;
+    case "SETTINGS_UPDATED": return t("房主更新了牌局设置");
+    case "BET_MODE_CHANGED": return `${name(event.actorId)} ${t(event.note === "BLIND" ? "开启盲注" : "切回正常下注")}`;
     default:
-      return "账本已更新";
+      return t("账本已更新");
   }
 }
 
@@ -325,6 +327,19 @@ function eventTime(event: LedgerEvent) {
 }
 
 export default function App() {
+  const [locale, setLocale] = useState<Locale>(preferredLocale);
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : locale === "ja" ? "ja" : "en";
+  }, [locale]);
+  const chooseLocale = (next: Locale) => {
+    rememberLocale(next);
+    setLocale(next);
+  };
+  return <I18nProvider locale={locale}><AppContent locale={locale} onLocaleChange={chooseLocale} /></I18nProvider>;
+}
+
+function AppContent({ locale, onLocaleChange }: { locale: Locale; onLocaleChange: (locale: Locale) => void }) {
+  const { t } = useI18n();
   const [roomLink, setRoomLink] = useState(initialRoomLink);
   const roomId = roomLink?.roomId ?? null;
   const [theme, setTheme] = useState<Theme>(preferredTheme);
@@ -396,11 +411,11 @@ export default function App() {
   };
 
   if (!isFirebaseConfigured) return <ConfigurationView />;
-  if (!session.isReady) return <LoadingView label="正在建立安全连接…" />;
+  if (!session.isReady) return <LoadingView label={t("正在建立安全连接…")} />;
   if (session.error) return <ErrorView message={session.error} />;
   if (!roomId)
-    return <LandingView db={db!} uid={session.uid} onOpenRoom={openRoom} theme={theme} onToggleTheme={toggleTheme} showThemeHint={showThemeHint} onDismissThemeHint={dismissThemeHint} />;
-  if (roomState.isLoading || identity.isLoading) return <LoadingView label="正在验证专属身份并同步房间…" />;
+    return <LandingView db={db!} uid={session.uid} onOpenRoom={openRoom} theme={theme} onToggleTheme={toggleTheme} showThemeHint={showThemeHint} onDismissThemeHint={dismissThemeHint} locale={locale} onLocaleChange={onLocaleChange} />;
+  if (roomState.isLoading || identity.isLoading) return <LoadingView label={t("正在验证专属身份并同步房间…")} />;
   if (identity.error || roomState.error)
     return (
       <ErrorView
@@ -411,7 +426,7 @@ export default function App() {
   if (!roomState.room)
     return (
       <ErrorView
-        message="没有找到这个房间。请检查邀请链接是否完整。"
+        message={t("没有找到这个房间。请检查邀请链接是否完整。")}
         onHome={goHome}
       />
     );
@@ -422,9 +437,9 @@ export default function App() {
   // 专属身份兑换完成后，玩家列表监听可能会晚一个快照到达；缓存中的旧列表也不能
   // 当作“玩家不存在”。在服务端确认前保持加载态，避免首次打开链接闪现失败页。
   if (!currentPlayer && (!roomState.streamHealth.playersAt || roomState.streamHealth.playersFromCache))
-    return <LoadingView label="正在同步玩家信息…" />;
+    return <LoadingView label={t("正在同步玩家信息…")} />;
   if (!currentPlayer)
-    return <ErrorView message="专属身份尚未加入房间，请刷新后重试。" onHome={goHome} />;
+    return <ErrorView message={t("专属身份尚未加入房间，请刷新后重试。")} onHome={goHome} />;
   return (
     <RoomView
       db={db!}
@@ -438,7 +453,27 @@ export default function App() {
       showThemeHint={showThemeHint}
       onDismissThemeHint={dismissThemeHint}
       onHome={goHome}
+      locale={locale}
+      onLocaleChange={onLocaleChange}
     />
+  );
+}
+
+function LanguageSwitcher({ locale, onChange, className = "" }: { locale: Locale; onChange: (locale: Locale) => void; className?: string }) {
+  return (
+    <label className={`relative inline-flex items-center ${className}`}>
+      <Languages size={14} className="pointer-events-none absolute left-2 text-slate-400" aria-hidden="true" />
+      <select
+        value={locale}
+        onChange={(event) => onChange(event.target.value as Locale)}
+        aria-label="Language"
+        className="h-9 appearance-none rounded-lg border border-white/10 bg-white/5 pl-7 pr-2 text-xs font-bold text-slate-300 outline-none focus:border-blue-400"
+      >
+        <option value="zh">中</option>
+        <option value="ja">日</option>
+        <option value="en">EN</option>
+      </select>
+    </label>
   );
 }
 
@@ -463,18 +498,19 @@ function ErrorView({
   message: string;
   onHome?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-[#0f172a] p-6 flex items-center justify-center text-slate-100">
       <div className="max-w-sm text-center bg-white/5 border border-red-400/20 rounded-3xl p-7">
         <AlertCircle className="text-red-400 mx-auto mb-4" size={36} />
-        <h1 className="font-bold text-xl mb-2">暂时无法进入</h1>
+        <h1 className="font-bold text-xl mb-2">{t("暂时无法进入")}</h1>
         <p className="text-sm leading-6 text-slate-400">{message}</p>
         {onHome && (
           <button
             onClick={onHome}
             className="mt-6 px-5 py-3 bg-amber-400 text-slate-900 rounded-xl font-bold"
           >
-            返回首页
+            {t("返回首页")}
           </button>
         )}
       </div>
@@ -569,6 +605,8 @@ function LandingView({
   onToggleTheme,
   showThemeHint,
   onDismissThemeHint,
+  locale,
+  onLocaleChange,
 }: {
   db: Firestore;
   uid: string;
@@ -577,7 +615,10 @@ function LandingView({
   onToggleTheme: () => void;
   showThemeHint: boolean;
   onDismissThemeHint: () => void;
+  locale: Locale;
+  onLocaleChange: (locale: Locale) => void;
 }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"CREATE" | "JOIN">("CREATE");
   const [mode, setMode] = useState<RoomMode>("LEDGER");
   const [playerName, setPlayerName] = useState(preferredPlayerName);
@@ -631,12 +672,12 @@ function LandingView({
         onOpenRoom(await createLinkedRoom(db, uid, `${playerName.trim()}的房间`, playerName, mode));
       } else {
         const link = parseRoomLink(code);
-        if (!link) throw new Error("请粘贴完整的专属邀请链接。");
+        if (!link) throw new Error(t("请粘贴完整的专属邀请链接。"));
         onOpenRoom(link);
       }
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "操作失败，请稍后重试。",
+        reason instanceof Error ? reason.message : t("操作失败，请稍后重试。"),
       );
     } finally {
       setBusy(false);
@@ -645,11 +686,12 @@ function LandingView({
   return (
     <div className="relative min-h-screen bg-[#0f172a] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-[#0f172a] px-5 pb-8 pt-5 text-slate-100">
       <main className="relative mx-auto w-full max-w-md pt-10">
+        <div className="absolute right-0 top-2"><LanguageSwitcher locale={locale} onChange={onLocaleChange} /></div>
         <section className="mb-12 flex items-center gap-4">
           <BrandLogo variant="landing" theme={theme} onToggleTheme={onToggleTheme} showHint={showThemeHint} onDismissHint={onDismissThemeHint} />
           <div className="min-w-0">
-            <h1 className="text-[30px] font-black leading-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-orange-500">牌友记账神器</h1>
-            <p className="mt-1 text-[15px] text-slate-400">实时同步的朋友局账本</p>
+            <h1 className="text-[30px] font-black leading-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-orange-500">{t("牌友记账神器")}</h1>
+            <p className="mt-1 text-[15px] text-slate-400">{t("实时同步的朋友局账本")}</p>
           </div>
         </section>
         <section className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-7">
@@ -658,13 +700,13 @@ function LandingView({
               active={tab === "CREATE"}
               onClick={() => setTab("CREATE")}
               icon={<Plus size={16} />}
-              label="我要开房"
+              label={t("我要开房")}
             />
             <Tab
               active={tab === "JOIN"}
               onClick={() => setTab("JOIN")}
               icon={<LogIn size={16} />}
-              label="加入房间"
+              label={t("加入房间")}
             />
           </div>
           <>
@@ -672,10 +714,10 @@ function LandingView({
             <>
               <RoomModePicker mode={mode} onChange={setMode} />
               <Input
-                label="我的名字（将自动作为房间名）"
+                label={t("我的名字（将自动作为房间名）")}
                 value={playerName}
                 onChange={setPlayerName}
-                placeholder="例如：赌神阿发"
+                placeholder={t("例如：赌神阿发")}
                 action={
                   <div className="flex items-center gap-0.5">
                     <PlayerPickerButton
@@ -692,10 +734,10 @@ function LandingView({
           ) : (
             <>
               <Input
-                label="专属邀请链接"
+                label={t("专属邀请链接")}
                 value={code}
                 onChange={setCode}
-                placeholder="粘贴朋友发来的完整链接"
+                placeholder={t("粘贴朋友发来的完整链接")}
               />
               <button
                 type="button"
@@ -706,7 +748,7 @@ function LandingView({
                 className="-mt-2 mb-5 w-full rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-bold text-slate-300 flex items-center justify-center gap-2 active:scale-[0.98]"
               >
                 <Camera size={18} className="text-amber-400" />
-                扫码加入房间
+                {t("扫码加入房间")}
               </button>
             </>
           )}
@@ -720,19 +762,19 @@ function LandingView({
           >
             {busy && <LoaderCircle className="animate-spin" />}{" "}
             {tab === "CREATE"
-              ? `创建${mode === "LEDGER" ? "记账房" : "牌局房"}`
-              : "下一步"}
+              ? t(mode === "LEDGER" ? "创建记账房" : "创建牌局房")
+              : t("下一步")}
             <ChevronRight />
           </button>
           </>
         </section>
         {!!recentRooms.length && <section className="mt-5">
-          <div className="mb-2 flex items-center gap-2 px-1 text-xs font-bold text-slate-400"><History size={14} />最近房间</div>
-          <div className="space-y-2">{recentRooms.map((room) => <div key={`${room.roomId}-${room.inviteToken}`} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-xl"><button type="button" onClick={() => onOpenRoom(room)} className="min-w-0 flex-1 rounded-xl px-3 py-2 text-left active:bg-white/5"><div className="flex items-center justify-between gap-3"><p className="truncate text-sm font-bold text-slate-200">{room.roomName}</p><ChevronRight size={16} className="shrink-0 text-blue-300" /></div><p className="mt-1 truncate text-[11px] text-slate-500">以“{room.playerName}”进入 · {room.role === "OWNER" ? "房主" : "牌友"}</p></button><button type="button" onClick={() => { forgetRecentRoom(room.roomId, room.inviteToken); setRecentRooms(readRecentRooms()); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-500 active:bg-white/5" aria-label={`移除${room.roomName}`}><X size={15} /></button></div>)}</div>
+          <div className="mb-2 flex items-center gap-2 px-1 text-xs font-bold text-slate-400"><History size={14} />{t("最近房间")}</div>
+          <div className="space-y-2">{recentRooms.map((room) => <div key={`${room.roomId}-${room.inviteToken}`} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-xl"><button type="button" onClick={() => onOpenRoom(room)} className="min-w-0 flex-1 rounded-xl px-3 py-2 text-left active:bg-white/5"><div className="flex items-center justify-between gap-3"><p className="truncate text-sm font-bold text-slate-200">{room.roomName}</p><ChevronRight size={16} className="shrink-0 text-blue-300" /></div><p className="mt-1 truncate text-[11px] text-slate-500">{t("以“{name}”进入 · {role}", { name: room.playerName, role: t(room.role === "OWNER" ? "房主" : "牌友") })}</p></button><button type="button" onClick={() => { forgetRecentRoom(room.roomId, room.inviteToken); setRecentRooms(readRecentRooms()); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-500 active:bg-white/5" aria-label={t("移除{name}", { name: room.roomName })}><X size={15} /></button></div>)}</div>
         </section>}
         {showPlayerPicker && (
           <ModalFrame
-            title="选择玩家名"
+            title={t("选择玩家名")}
             onClose={() => setShowPlayerPicker(false)}
           >
             <PlayerNamePicker
@@ -766,9 +808,10 @@ function RoomModePicker({
   mode: RoomMode;
   onChange: (mode: RoomMode) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="mb-5">
-      <p className="mb-2 text-sm font-bold text-slate-400">房间用途</p>
+      <p className="mb-2 text-sm font-bold text-slate-400">{t("房间用途")}</p>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -776,10 +819,10 @@ function RoomModePicker({
           className={`rounded-2xl border p-3 text-left transition ${mode === "LEDGER" ? "border-amber-400 bg-amber-400/10 text-amber-200" : "border-white/10 bg-black/20 text-slate-400"}`}
         >
           <span className="flex items-center gap-2 text-sm font-black">
-            <Wallet size={16} /> 记账
+            <Wallet size={16} /> {t("记账")}
           </span>
           <span className="mt-1 block text-[10px] leading-4 opacity-75">
-            转账与账本流水
+            {t("转账与账本流水")}
           </span>
         </button>
         <button
@@ -788,10 +831,10 @@ function RoomModePicker({
           className={`rounded-2xl border p-3 text-left transition ${mode === "POKER" ? "border-amber-400 bg-amber-400/10 text-amber-200" : "border-white/10 bg-black/20 text-slate-400"}`}
         >
           <span className="flex items-center gap-2 text-sm font-black">
-            <Dices size={16} /> 德州扑克
+            <Dices size={16} /> {t("德州扑克")}
           </span>
           <span className="mt-1 block text-[10px] leading-4 opacity-75">
-            荷官控场，下注与结算
+            {t("荷官控场，下注与结算")}
           </span>
         </button>
       </div>
@@ -1024,6 +1067,8 @@ function RoomView({
   showThemeHint,
   onDismissThemeHint,
   onHome,
+  locale,
+  onLocaleChange,
 }: {
   db: Firestore;
   roomId: string;
@@ -1036,7 +1081,10 @@ function RoomView({
   showThemeHint: boolean;
   onDismissThemeHint: () => void;
   onHome: () => void;
+  locale: Locale;
+  onLocaleChange: (locale: Locale) => void;
 }) {
+  const { t } = useI18n();
   const [modal, setModal] = useState<Modal>(null);
   const [forceTarget, setForceTarget] = useState<Player | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Player | null>(null);
@@ -1093,11 +1141,11 @@ function RoomView({
     try {
       await work();
       playSound(sound);
-      setNotice("已提交，正在同步到所有玩家。");
+      setNotice(t("已提交，正在同步到所有玩家。"));
       setTimeout(() => setNotice(null), 2800);
     } catch (reason) {
       setNotice(
-        reason instanceof Error ? reason.message : "操作失败，请重试。",
+        reason instanceof Error ? reason.message : t("操作失败，请稍后重试。"),
       );
     } finally {
       setBusy(false);
@@ -1106,7 +1154,7 @@ function RoomView({
   const inviteUrl = buildRoomLink(roomId, inviteToken);
   const copyInvite = async (url: string) => {
     await navigator.clipboard.writeText(url);
-    setNotice("邀请链接已复制。");
+    setNotice(t("邀请链接已复制。"));
     setTimeout(() => setNotice(null), 2000);
   };
   return (
@@ -1118,29 +1166,30 @@ function RoomView({
             <h1 className="truncate text-[16px] font-bold leading-[1.15]">{room.name}</h1>
             <div className="flex w-full items-center justify-start gap-2 text-[10px] leading-none">
               <span className="room-mode-badge rounded-full bg-white/5 px-2 py-1 font-bold text-slate-400">
-                {roomModeLabel(room)}
+                {isLedger ? t("记账模式") : t("德州扑克")}
               </span>
               <span className="truncate font-medium text-slate-500">
-                {room.createdAt ? roomTime(room.createdAt.toDate()) : "刚刚创建"}
+                {room.createdAt ? roomTime(room.createdAt.toDate()) : t("刚刚创建")}
               </span>
             </div>
           </div>
         </div>
         <div ref={roomActionsRef} className="relative flex shrink-0 gap-2">
+          <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
           <button
             type="button"
             onClick={() => setModal("SHARE")}
             className="grid h-11 w-11 place-items-center rounded-xl border border-blue-400/25 bg-blue-500/10 text-blue-300 active:scale-95"
-            aria-label={isOwner ? "邀请朋友" : "我的专属链接"}
-            title={isOwner ? "邀请朋友" : "我的专属链接"}
+            aria-label={t(isOwner ? "邀请朋友" : "我的专属链接")}
+            title={t(isOwner ? "邀请朋友" : "我的专属链接")}
           >
             <Share2 size={18} />
           </button>
           <button
             onClick={() => setModal("ROOM_ACTIONS")}
             className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300 active:scale-95"
-            aria-label="房间操作"
-            title="房间操作"
+            aria-label={t("房间操作")}
+            title={t("房间操作")}
           >
             <SlidersHorizontal size={18} />
           </button>
@@ -1167,13 +1216,13 @@ function RoomView({
               </span>
               <div>
                 <p className="text-[10px] tracking-wider text-slate-400">
-                  当前底池
+                  {t("当前底池")}
                 </p>
                 <p className="text-2xl font-black">{money(room.pot)}</p>
               </div>
             </div>
             <div className="text-right">
-                <p className="text-[10px] text-slate-400">轮次</p>
+                <p className="text-[10px] text-slate-400">{t("轮次")}</p>
                 <p className="text-xl font-bold">{isActive ? room.round : "-"}</p>
             </div>
           </div>
@@ -1193,12 +1242,12 @@ function RoomView({
                     >
                       <span className="flex items-center gap-1.5">
                         {player.displayName}
-                        {player.betMode === "BLIND" && <span className="rounded bg-violet-400/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-300">盲注</span>}
+                        {player.betMode === "BLIND" && <span className="rounded bg-violet-400/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-300">{t("盲注")}</span>}
                       </span>
                       <span className="text-amber-400">
                         {player.folded
-                          ? "已弃牌"
-                          : `本轮 ${money(player.roundContribution ?? 0)}`}
+                          ? t("已弃牌")
+                          : t("本轮 {amount}", { amount: money(player.roundContribution ?? 0) })}
                       </span>
                     </div>
                   ))}
@@ -1209,11 +1258,11 @@ function RoomView({
                   <div key={player.id} className="flex justify-between rounded-xl bg-white/5 p-2.5 text-sm">
                     <span>{player.displayName}</span>
                     <span className={player.isReady ? "text-green-300" : "text-slate-500"}>
-                      {player.isReady ? "已准备" : "未准备"}
+                      {player.isReady ? t("已准备") : t("未准备")}
                     </span>
                   </div>
                 ))}
-                {!seatedPlayers.length && <div className="h-24 flex flex-col justify-center items-center text-slate-500"><Dices size={24} /><p className="mt-2 text-sm">牌桌空闲中</p></div>}
+                {!seatedPlayers.length && <div className="h-24 flex flex-col justify-center items-center text-slate-500"><Dices size={24} /><p className="mt-2 text-sm">{t("牌桌空闲中")}</p></div>}
               </div>
             )}
           </div>
@@ -1222,7 +1271,7 @@ function RoomView({
         <section>
           <p className="mb-3 text-sm font-bold text-slate-400 flex items-center gap-2">
             <Users size={15} />
-            {isLedger ? "记账玩家" : "打牌玩家"} ({room.playerCount}/{room.maxPlayers})
+            {t(isLedger ? "记账玩家" : "打牌玩家")} ({room.playerCount}/{room.maxPlayers})
           </p>
           <div className="grid grid-cols-2 gap-3">
             {activePlayers.map((player) => (
@@ -1231,7 +1280,7 @@ function RoomView({
                 player={player}
                 isMe={player.id === uid}
                 isOwner={player.id === room.ownerId}
-                label={isLedger ? "余额" : "筹码"}
+                label={t(isLedger ? "余额" : "筹码")}
                 initialBalance={room.settings?.initialBalance ?? 10_000}
                 status={!isLedger ? (isActive ? (player.activeInHand ? "游戏中" : player.folded ? "已弃牌" : player.isSeated ? "等待下局" : "未上桌") : player.isSeated ? (player.isReady ? "已准备" : "未准备") : "未上桌") : undefined}
                 isBlind={!isLedger && player.betMode === "BLIND"}
@@ -1250,13 +1299,13 @@ function RoomView({
           <div className="flex justify-between mb-3">
             <p className="text-sm font-bold text-slate-400 flex gap-2">
               <History size={15} />
-              {isLedger ? "最近流水" : "牌局记录"}
+              {t(isLedger ? "最近流水" : "牌局记录")}
             </p>
             <button
               onClick={() => setModal("HISTORY")}
               className="text-xs text-amber-400"
             >
-              查看全部
+              {t("查看全部")}
             </button>
           </div>
           <div className="space-y-2">
@@ -1265,7 +1314,7 @@ function RoomView({
             ))}
             {!state.events.length && (
               <p className="text-sm text-slate-500 text-center py-5">
-                还没有账务记录
+                {t("还没有账务记录")}
               </p>
             )}
           </div>
@@ -1291,11 +1340,11 @@ function RoomView({
           <>
             {isActive && !inHand ? (
               <button onClick={() => act(() => currentPlayer.isSeated ? leaveTable(db, roomId, uid) : takeSeat(db, roomId, uid))} className="col-span-4 rounded-xl py-4 bg-slate-800 text-slate-300 font-bold">
-                {currentPlayer.isSeated ? "下桌（等待下一局）" : "上桌（下一局加入）"}
+                {t(currentPlayer.isSeated ? "下桌（等待下一局）" : "上桌（下一局加入）")}
               </button>
             ) : isActive && currentPlayer.folded ? (
               <div className="col-span-4 rounded-xl bg-slate-800 text-slate-500 text-xs flex items-center justify-center">
-                本局已弃牌，等待房主结算
+                {t("本局已弃牌，等待房主结算")}
               </div>
             ) : isActive ? (
               <>
@@ -1305,10 +1354,10 @@ function RoomView({
                   className="rounded-xl bg-blue-500/15 border border-blue-400/20 text-blue-300 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-800 disabled:border-slate-700 disabled:text-slate-500"
                 >
                   {callExceedsRoundLimit
-                    ? "已达本轮上限"
+                    ? t("已达本轮上限")
                     : callAmount
-                      ? `${isBlind ? "盲注跟注" : "跟注"} ${money(callAmount)}`
-                      : "等待下注"}
+                      ? `${t(isBlind ? "盲注跟注" : "跟注")} ${money(callAmount)}`
+                      : t("等待下注")}
                 </button>
                 <button
                   onClick={() => setModal("BET")}
@@ -1318,10 +1367,10 @@ function RoomView({
                   <Coins size={18} />
                   <span className="text-xs">
                     {remainingRoundBetAmount <= 0
-                      ? "本轮下注已达上限"
+                      ? t("本轮下注已达上限")
                       : isBlind
-                        ? "盲注 / 加注"
-                        : (room.currentBet ?? 0) ? "下注 / 加注" : "先下注"}
+                        ? t("盲注 / 加注")
+                        : (room.currentBet ?? 0) ? t("下注 / 加注") : t("先下注")}
                   </span>
                 </button>
                 <button
@@ -1329,29 +1378,29 @@ function RoomView({
                   disabled={busy}
                   className="rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-800 disabled:border-slate-700 disabled:text-slate-500"
                 >
-                  弃牌
+                  {t("弃牌")}
                 </button>
               </>
             ) : (
               <>
                 {!currentPlayer.isSeated ? (
-                  <button onClick={() => act(() => takeSeat(db, roomId, uid))} className="col-span-4 rounded-xl py-4 bg-slate-800 text-slate-200 font-bold">上桌</button>
+                  <button onClick={() => act(() => takeSeat(db, roomId, uid))} className="col-span-4 rounded-xl py-4 bg-slate-800 text-slate-200 font-bold">{t("上桌")}</button>
                 ) : (
                   <>
                     <button onClick={() => act(() => setReady(db, roomId, uid, !currentPlayer.isReady), "TICK")} className={`col-span-3 rounded-xl py-4 font-bold ${currentPlayer.isReady ? "bg-green-500/15 text-green-300" : "bg-amber-400 text-slate-900"}`}>
-                      {currentPlayer.isReady ? "已准备 · 点击取消" : "准备"}
+                      {currentPlayer.isReady ? t("已准备 · 点击取消") : t("准备")}
                     </button>
                     <button
                       onClick={() => act(() => leaveTable(db, roomId, uid))}
                       disabled={busy || currentPlayer.isReady}
                       className="rounded-xl bg-slate-800 text-slate-300 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-800/50 disabled:text-slate-600"
                     >
-                      {currentPlayer.isReady ? "先取消准备" : "下桌"}
+                      {currentPlayer.isReady ? t("先取消准备") : t("下桌")}
                     </button>
                   </>
                 )}
                 {isOwner && <button onClick={() => act(() => startHand(db, roomId, uid), "DEAL")} disabled={busy || readyPlayers.length < 2} className="col-span-4 rounded-xl py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 font-black disabled:cursor-not-allowed disabled:bg-none disabled:bg-slate-700 disabled:text-slate-500">
-                  {readyPlayers.length >= 2 ? "开始牌局" : `等待准备（${readyPlayers.length}/2）`}
+                  {readyPlayers.length >= 2 ? t("开始牌局") : t("等待准备（{ready}/2）", { ready: readyPlayers.length })}
                 </button>}
               </>
             )}
@@ -1362,13 +1411,13 @@ function RoomView({
                   disabled={busy}
                   className="rounded-xl py-2 bg-blue-500/15 border border-blue-400/20 text-blue-300 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-800 disabled:border-slate-700 disabled:text-slate-500"
                 >
-                  下一轮
+                  {t("下一轮")}
                 </button>
                 <button
                   onClick={() => setModal("SETTLE")}
                   className="rounded-xl py-2 bg-red-500/15 border border-red-400/20 text-red-300 text-xs font-bold"
                 >
-                  结算本局
+                  {t("结算本局")}
                 </button>
               </div>
             )}
@@ -1394,8 +1443,8 @@ function RoomView({
       )}
       {modal === "BET" && (
         <AmountModal
-          title={isBlind ? "确认盲注" : "确认下注"}
-          action={isBlind ? "盲注" : (room.currentBet ?? 0) ? "下注 / 加注" : "下注"}
+          title={t(isBlind ? "确认盲注" : "确认下注")}
+          action={t(isBlind ? "盲注" : (room.currentBet ?? 0) ? "下注 / 加注" : "下注")}
           maxAmount={remainingRoundBetAmount}
           roundLimit={maxRoundStake}
           usesRoundLimit={usesRoundBetLimit}
@@ -1560,6 +1609,7 @@ function PlayerCard({
   onForceOffTable?: () => void;
   onRemoveFromRoom?: () => void;
 }) {
+  const { t } = useI18n();
   const profitLoss = player.balance - initialBalance;
   const profitLossStyle = profitLoss > 0
     ? "bg-green-500/15 text-green-300"
@@ -1586,19 +1636,19 @@ function PlayerCard({
         <div className="flex items-center gap-2">
           {isOwner && (
             <span className="flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-              <Crown size={10} /> 房主
+              <Crown size={10} /> {t("房主")}
             </span>
           )}
           {isBlind && (
-            <span className="rounded bg-violet-400/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-300">盲注</span>
+            <span className="rounded bg-violet-400/15 px-1.5 py-0.5 text-[9px] font-bold text-violet-300">{t("盲注")}</span>
           )}
           {status && <span className={`text-[9px] ${status === "已准备" ? "text-green-300" : "text-slate-500"}`}>{status}</span>}
         </div>
       </div>
       {(onForceOffTable || onRemoveFromRoom) && (
         <div className="mt-2 flex items-center gap-3 text-[10px]">
-          {onForceOffTable && <button onClick={(event) => { event.stopPropagation(); onForceOffTable(); }} className="text-slate-500">请下桌</button>}
-          {onRemoveFromRoom && <button onClick={(event) => { event.stopPropagation(); onRemoveFromRoom(); }} className="text-red-300">请离开</button>}
+          {onForceOffTable && <button onClick={(event) => { event.stopPropagation(); onForceOffTable(); }} className="text-slate-500">{t("请下桌")}</button>}
+          {onRemoveFromRoom && <button onClick={(event) => { event.stopPropagation(); onRemoveFromRoom(); }} className="text-red-300">{t("请离开")}</button>}
         </div>
       )}
       <p className="mt-4 text-[10px] text-slate-500">{label}</p>
@@ -1607,7 +1657,7 @@ function PlayerCard({
           {money(player.balance)}
         </p>
         <span className={`mb-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold ${profitLossStyle}`}>
-          盈亏 {signedMoney(profitLoss)}
+          {t("盈亏 {amount}", { amount: signedMoney(profitLoss) })}
         </span>
       </div>
     </div>
@@ -1622,9 +1672,11 @@ function EventRow({
   players: Player[];
   compact?: boolean;
 }) {
+  const { t } = useI18n();
+  const label = eventLabel(event, players, t);
   if (compact) return (
     <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/5 px-3 py-2.5 text-sm">
-      <p className="min-w-0 flex-1 truncate font-medium">{eventLabel(event, players)}</p>
+      <p className="min-w-0 flex-1 truncate font-medium">{label}</p>
       {event.amount ? <p className="shrink-0 font-bold text-amber-400">{money(event.amount)}</p> : null}
       <time className="shrink-0 text-[10px] font-medium text-slate-500">{eventTime(event)}</time>
     </div>
@@ -1632,7 +1684,7 @@ function EventRow({
   return (
     <div className="rounded-xl border border-white/5 bg-white/5 p-3 flex justify-between text-sm">
       <div>
-        <p className="font-medium">{eventLabel(event, players)}</p>
+        <p className="font-medium">{label}</p>
         <p className="text-[10px] text-slate-500 mt-1">{eventTime(event)}</p>
       </div>
       {event.amount ? (
@@ -1685,6 +1737,7 @@ function RoomActionsModal({
   onOpenDestroy: () => void;
   onOpenLeave: () => void;
 }) {
+  const { t } = useI18n();
   const open = (action: () => void) => {
     onClose();
     action();
@@ -1693,27 +1746,27 @@ function RoomActionsModal({
   return (
       <section
         className="room-actions-popover absolute right-0 top-full z-40 mt-2 w-[min(17.5rem,calc(100vw-1.5rem))] rounded-2xl border border-white/10 bg-[#1e293b]/95 p-2 shadow-2xl backdrop-blur-xl"
-        aria-label="房间操作"
+        aria-label={t("房间操作")}
       >
       <div className="space-y-1">
         {isOwner && (
           <button type="button" onClick={() => open(onOpenSettings)} className={itemClass}>
             {isLedger ? <Wallet size={18} className="text-blue-300" /> : <Spade size={18} className="text-amber-300" />}
-            <span>{isLedger ? "房间设置" : "牌局设置"}</span>
+            <span>{t(isLedger ? "房间设置" : "牌局设置")}</span>
           </button>
         )}
         <button type="button" onClick={() => open(onOpenShare)} className={itemClass}>
           <Share2 size={18} className="text-blue-300" />
-          <span>{isOwner ? "邀请朋友" : "我的专属链接"}</span>
+          <span>{t(isOwner ? "邀请朋友" : "我的专属链接")}</span>
         </button>
         <button type="button" onClick={() => open(onOpenLeave)} className={itemClass}>
           <LogIn size={18} className="rotate-180 text-slate-300" />
-          <span>离开房间</span>
+          <span>{t("离开房间")}</span>
         </button>
         {isOwner && (
           <button type="button" onClick={() => open(onOpenDestroy)} className="room-action-danger mt-1 flex w-full items-center gap-3 border-t border-red-400/15 px-3 pb-3 pt-4 text-left text-sm font-bold text-red-300 active:scale-[0.99]">
             <X size={18} />
-            <span>销毁房间</span>
+            <span>{t("销毁房间")}</span>
           </button>
         )}
       </div>
@@ -2034,6 +2087,7 @@ function ShareModal({
   onCopy: (url: string) => Promise<void>;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [invites, setInvites] = useState<RoomInvite[]>([]);
   const [count, setCount] = useState(5);
   const [qrCard, setQrCard] = useState<{ url: string; name: string } | null>(null);
@@ -2051,7 +2105,7 @@ function ShareModal({
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [qrCard]);
-  const ownInvite = { id: inviteToken, playerId: currentPlayerId, displayName: players.find((item) => item.id === currentPlayerId)?.displayName ?? "我的身份", role: isOwner ? "OWNER" : "PLAYER", joinedAt: null, createdAt: null } as RoomInvite;
+  const ownInvite = { id: inviteToken, playerId: currentPlayerId, displayName: players.find((item) => item.id === currentPlayerId)?.displayName ?? t("我的身份"), role: isOwner ? "OWNER" : "PLAYER", joinedAt: null, createdAt: null } as RoomInvite;
   const ownerInvite = invites.find((invite) => invite.role === "OWNER") ?? (isOwner ? ownInvite : null);
   const guestInvites = isOwner ? invites.filter((invite) => invite.role !== "OWNER") : [ownInvite];
   const remaining = Math.max(0, 12 - invites.length);
@@ -2063,7 +2117,7 @@ function ShareModal({
   const copyAllGuestInvites = async () => {
     if (!guestInvites.length) return;
     const lines = guestInvites.map((invite) => `${inviteNameFor(invite)}：${inviteUrlFor(invite)}`);
-    const content = `${roomName} · 专属邀请\n请任选一条链接加入，进房间后可改名。\n\n${lines.join("\n")}`;
+    const content = `${roomName} · ${t("专属邀请")}\n${t("请任选一条链接加入，进房间后可改名。")}\n\n${lines.join("\n")}`;
     try {
       await navigator.clipboard.writeText(content);
       setBulkCopied(true);
@@ -2076,18 +2130,18 @@ function ShareModal({
     const player = players.find((item) => item.id === invite.playerId);
     const displayName = inviteNameFor(invite);
     const url = inviteUrlFor(invite);
-    return <div key={invite.id} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{displayName}{invite.role === "OWNER" ? "（房主）" : ""}</p><p className="mt-0.5 text-[10px] text-slate-500">{player || invite.joinedAt ? "已加入" : "待加入"}</p></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => onCopy(url)} className="grid h-9 w-9 place-items-center rounded-lg bg-blue-600 text-white" aria-label={`复制${displayName}的链接`}><Copy size={15} /></button><button type="button" onClick={() => setQrCard({ url, name: displayName })} className="grid h-9 w-9 place-items-center rounded-lg border border-blue-400/30 text-blue-300" aria-label={`显示${displayName}的二维码`}><QrCodeIcon size={17} /></button>{isOwner && invite.role !== "OWNER" && <button type="button" onClick={() => setRenameTarget(invite)} className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-slate-300" aria-label={`修改${displayName}的名字`}><Pencil size={15} /></button>}{isOwner && invite.role !== "OWNER" && !player && !invite.joinedAt && <button type="button" onClick={async () => { try { await revokeQuickInvite(db, roomId, ownerId, invite.id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "撤销失败。"); } }} className="grid h-9 w-9 place-items-center rounded-lg border border-red-400/20 text-red-300" aria-label={`撤销${displayName}的邀请`}><X size={15} /></button>}</div></div></div>;
+    return <div key={invite.id} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{displayName}{invite.role === "OWNER" ? ` (${t("房主")})` : ""}</p><p className="mt-0.5 text-[10px] text-slate-500">{t(player || invite.joinedAt ? "已加入" : "待加入")}</p></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => onCopy(url)} className="grid h-9 w-9 place-items-center rounded-lg bg-blue-600 text-white" aria-label={t("复制{name}的链接", { name: displayName })}><Copy size={15} /></button><button type="button" onClick={() => setQrCard({ url, name: displayName })} className="grid h-9 w-9 place-items-center rounded-lg border border-blue-400/30 text-blue-300" aria-label={t("显示{name}的二维码", { name: displayName })}><QrCodeIcon size={17} /></button>{isOwner && invite.role !== "OWNER" && <button type="button" onClick={() => setRenameTarget(invite)} className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-slate-300" aria-label={t("修改{name}的名字", { name: displayName })}><Pencil size={15} /></button>}{isOwner && invite.role !== "OWNER" && !player && !invite.joinedAt && <button type="button" onClick={async () => { try { await revokeQuickInvite(db, roomId, ownerId, invite.id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "撤销失败。"); } }} className="grid h-9 w-9 place-items-center rounded-lg border border-red-400/20 text-red-300" aria-label={t("撤销{name}的邀请", { name: displayName })}><X size={15} /></button>}</div></div></div>;
   };
   return (
-    <ModalFrame title={isOwner ? "邀请朋友" : "专属链接"} onClose={onClose}>
-      <p className="mb-4 text-sm leading-6 text-slate-400">一条链接代表一个玩家身份，可跨浏览器和设备使用。请把不同链接分别发给朋友。</p>
-      {ownerInvite && <section className="mb-4"><p className="mb-2 text-xs font-bold text-slate-500">房主入口</p>{inviteRow(ownerInvite)}</section>}
-      {isOwner && <section className="mb-4 rounded-2xl border border-white/10 bg-black/15 p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-400">本次新增牌友</p><span className="text-[10px] text-slate-500">还可生成 {remaining} 个</span></div>{remaining > 0 ? <div className="flex items-center gap-3"><div className="flex h-11 flex-1 items-center justify-between rounded-xl border border-white/10 bg-white/5 px-1"><button type="button" onClick={() => setCount((value) => Math.max(1, value - 1))} disabled={requestedCount <= 1} className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 disabled:opacity-25" aria-label="减少一个牌友"><Minus size={17} /></button><strong className="text-lg tabular-nums">{requestedCount}</strong><button type="button" onClick={() => setCount((value) => Math.min(remaining, value + 1))} disabled={requestedCount >= remaining} className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 disabled:opacity-25" aria-label="增加一个牌友"><Plus size={17} /></button></div><button type="button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { await createQuickInvites(db, roomId, ownerId, requestedCount, playerNamePresets); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "生成失败，请重试。"); } finally { setBusy(false); } }} className="h-11 rounded-xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50">{busy ? "生成中…" : `生成 ${requestedCount} 个`}</button></div> : <p className="py-2 text-center text-xs text-slate-500">12 个玩家身份已经全部生成。</p>}</section>}
-      {!!guestInvites.length && <div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-bold text-slate-500">{isOwner ? `牌友邀请（${guestInvites.length}）` : "我的入口"}</p>{isOwner && <button type="button" onClick={copyAllGuestInvites} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold active:scale-95 ${bulkCopied ? "bg-green-500/15 text-green-300" : "bg-blue-600 text-white"}`}><Copy size={13} />{bulkCopied ? "已复制全部" : "一键复制邀请"}</button>}</div>}
+    <ModalFrame title={t(isOwner ? "邀请朋友" : "专属链接")} onClose={onClose}>
+      <p className="mb-4 text-sm leading-6 text-slate-400">{t("一条链接代表一个玩家身份，可跨浏览器和设备使用。请把不同链接分别发给朋友。")}</p>
+      {ownerInvite && <section className="mb-4"><p className="mb-2 text-xs font-bold text-slate-500">{t("房主入口")}</p>{inviteRow(ownerInvite)}</section>}
+      {isOwner && <section className="mb-4 rounded-2xl border border-white/10 bg-black/15 p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-slate-400">{t("本次新增牌友")}</p><span className="text-[10px] text-slate-500">{t("还可生成 {count} 个", { count: remaining })}</span></div>{remaining > 0 ? <div className="flex items-center gap-3"><div className="flex h-11 flex-1 items-center justify-between rounded-xl border border-white/10 bg-white/5 px-1"><button type="button" onClick={() => setCount((value) => Math.max(1, value - 1))} disabled={requestedCount <= 1} className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 disabled:opacity-25" aria-label={t("减少一个牌友")}><Minus size={17} /></button><strong className="text-lg tabular-nums">{requestedCount}</strong><button type="button" onClick={() => setCount((value) => Math.min(remaining, value + 1))} disabled={requestedCount >= remaining} className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 disabled:opacity-25" aria-label={t("增加一个牌友")}><Plus size={17} /></button></div><button type="button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { await createQuickInvites(db, roomId, ownerId, requestedCount, playerNamePresets); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "生成失败，请重试。"); } finally { setBusy(false); } }} className="h-11 rounded-xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50">{busy ? t("生成中…") : t("生成 {count} 个", { count: requestedCount })}</button></div> : <p className="py-2 text-center text-xs text-slate-500">{t("12 个玩家身份已经全部生成。")}</p>}</section>}
+      {!!guestInvites.length && <div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-bold text-slate-500">{isOwner ? t("牌友邀请（{count}）", { count: guestInvites.length }) : t("我的入口")}</p>{isOwner && <button type="button" onClick={copyAllGuestInvites} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold active:scale-95 ${bulkCopied ? "bg-green-500/15 text-green-300" : "bg-blue-600 text-white"}`}><Copy size={13} />{t(bulkCopied ? "已复制全部" : "一键复制邀请")}</button>}</div>}
       <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
         {guestInvites.map(inviteRow)}
       </div>
-      {!guestInvites.length && !error && <p className="py-5 text-center text-sm text-slate-500">选择数量后生成牌友链接。</p>}
+      {!guestInvites.length && !error && <p className="py-5 text-center text-sm text-slate-500">{t("选择数量后生成牌友链接。")}</p>}
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       <p className="mt-3 text-center text-xs text-slate-500">{roomName} · 房号 {roomId}</p>
       {renameTarget && <RenamePlayerModal
@@ -2113,14 +2167,15 @@ function RenamePlayerModal({ currentName, onClose, onSubmit, title = "修改我�
   title?: string;
   description?: string;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(currentName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  return <ModalFrame title={title} onClose={onClose}>
-    <p className="mb-4 text-xs leading-5 text-slate-400">{description}</p>
-    <Input label="玩家名" value={name} onChange={setName} placeholder="请输入新名字" />
+  return <ModalFrame title={t(title)} onClose={onClose}>
+    <p className="mb-4 text-xs leading-5 text-slate-400">{t(description)}</p>
+    <Input label={t("玩家名")} value={name} onChange={setName} placeholder={t("请输入新名字")} />
     {error && <p className="mb-3 text-sm text-red-300">{error}</p>}
-    <button type="button" disabled={busy || !name.trim() || name.trim() === currentName} onClick={async () => { setBusy(true); setError(null); try { await onSubmit(name); } catch (reason) { setError(reason instanceof Error ? reason.message : "改名失败，请重试。"); } finally { setBusy(false); } }} className="w-full rounded-2xl bg-blue-600 py-4 font-black text-white disabled:opacity-40">{busy ? "保存中…" : "保存名字"}</button>
+    <button type="button" disabled={busy || !name.trim() || name.trim() === currentName} onClick={async () => { setBusy(true); setError(null); try { await onSubmit(name); } catch (reason) { setError(reason instanceof Error ? reason.message : "改名失败，请重试。"); } finally { setBusy(false); } }} className="w-full rounded-2xl bg-blue-600 py-4 font-black text-white disabled:opacity-40">{t(busy ? "保存中…" : "保存名字")}</button>
   </ModalFrame>;
 }
 
