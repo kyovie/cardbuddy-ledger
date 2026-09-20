@@ -34,6 +34,7 @@ import {
   callBet,
   destroyRoom,
   fold,
+  getQuickInvite,
   leaveTable,
   forceOffTable,
   forceRemovePlayer,
@@ -181,6 +182,12 @@ function rememberRecentRoom(room: RecentRoom) {
 function forgetRecentRoom(roomId: string, inviteToken: string) {
   try {
     localStorage.setItem(recentRoomsKey, JSON.stringify(readRecentRooms().filter((item) => !(item.roomId === roomId && item.inviteToken === inviteToken))));
+  } catch { /* Recent rooms are an optional local convenience. */ }
+}
+
+function saveRecentRooms(rooms: RecentRoom[]) {
+  try {
+    localStorage.setItem(recentRoomsKey, JSON.stringify(rooms.slice(0, 3)));
   } catch { /* Recent rooms are an optional local convenience. */ }
 }
 // Changes when the invite entry experience changes, so shared links cannot
@@ -581,6 +588,26 @@ function LandingView({
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [playerDiceRolling, setPlayerDiceRolling] = useState(false);
   const [recentRooms, setRecentRooms] = useState(readRecentRooms);
+  useEffect(() => {
+    let active = true;
+    const cachedRooms = readRecentRooms();
+    if (!cachedRooms.length) return;
+    Promise.all(cachedRooms.map(async (room) => {
+      try {
+        // 房间销毁、邀请撤销或被请离后，对应邀请会被删除。
+        return await getQuickInvite(db, room.roomId, room.inviteToken) ? room : null;
+      } catch {
+        // 网络临时不可用时保留入口，避免误删仍然有效的最近房间。
+        return room;
+      }
+    })).then((checkedRooms) => {
+      if (!active) return;
+      const validRooms = checkedRooms.filter((room): room is RecentRoom => room !== null);
+      saveRecentRooms(validRooms);
+      setRecentRooms(validRooms);
+    });
+    return () => { active = false; };
+  }, [db]);
   const choosePlayerName = (name: string) => {
     setPlayerName(name);
     rememberPlayerName(name);
